@@ -1,0 +1,30 @@
+from contextlib import asynccontextmanager
+
+from ark_sdk import versions
+
+V1_ALPHA1 = "v1alpha1"
+V1_PREALPHA1 = "v1prealpha1"
+
+def get_client(namespace: str, version: str):
+    clazz = {
+        V1_ALPHA1: versions.ARKClientV1alpha1,
+        V1_PREALPHA1: versions.ARKClientV1prealpha1
+    }.get(version)
+    if not clazz:
+        raise Exception(f"No client for {version}")
+    return clazz(namespace)
+
+@asynccontextmanager
+async def with_ark_client(namespace: str, version: str):
+    """
+    Async context manager that provides an ARK client.
+
+    Args:
+        namespace: The Kubernetes namespace
+        version: The API version to use
+
+    Yields:
+        ARK client instance
+    """
+    ark_client = get_client(namespace, version)
+    yield ark_client

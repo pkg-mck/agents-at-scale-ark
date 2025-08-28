@@ -1,0 +1,87 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: agent-structured-output
+spec:
+  description: Test agent structured output with JSON schema
+  timeouts:
+    apply: 30s
+    assert: 120s
+    cleanup: 30s
+  steps:
+  - name: deploy-resources
+    try:
+    - script:
+        skipLogOutput: true
+        content: |
+          set -u
+          echo "{\"token\": \"$E2E_TEST_AZURE_OPENAI_KEY\", \"url\": \"$E2E_TEST_AZURE_OPENAI_BASE_URL\"}"
+        outputs:
+        - name: azure
+          value: (json_parse($stdout))
+    - apply:
+        file: manifests/*.yaml
+
+  - name: verify-model-ready
+    try:
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Model
+          metadata:
+            name: structured-output-test-model
+            namespace: ($namespace)
+          status:
+            phase: ready
+    
+  - name: verify-agent-created
+    try:
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Agent
+          metadata:
+            name: structured-output-test-agent
+            namespace: ($namespace)
+    
+  - name: verify-query-completion
+    try:
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: structured-output-test-query
+            namespace: ($namespace)
+          status:
+            phase: done
+    catch:
+    - events: {}
+    - describe:
+        apiVersion: ark.mckinsey.com/v1alpha1
+        kind: Query
+        name: structured-output-test-query
+        namespace: ($namespace)
+
+  - name: validate-response-structure
+    try:
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: structured-output-test-query
+            namespace: ($namespace)
+          status:
+            phase: done
+            (contains(['positive', 'negative', 'neutral'], json_parse(responses[0].content).sentiment)): true
+            (json_parse(responses[0].content).confidence >= `0`): true
+            (json_parse(responses[0].content).confidence <= `1`): true
+            (length(json_parse(responses[0].content).entities) >= `0`): true
+    catch:
+    - events: {}
+    - describe:
+        apiVersion: ark.mckinsey.com/v1alpha1
+        kind: Query
+        name: structured-output-test-query
+        namespace: ($namespace)

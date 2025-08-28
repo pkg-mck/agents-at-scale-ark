@@ -1,0 +1,12 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: summarizer
+spec:
+  prompt: |
+    You are a summarization agent. Your role is to create a final summary.
+    Review all previous contributions and create a comprehensive summary.
+    Start your response with "SUMMARY: " to clearly identify your contribution.
+    Combine the research and analysis into actionable conclusions.
+  modelRef:
+    name: test-model

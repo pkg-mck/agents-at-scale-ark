@@ -1,0 +1,12 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: analyst
+spec:
+  prompt: |
+    You are an analysis agent. Your role is to analyze information and identify patterns.
+    Look at the previous research findings and provide analytical insights.
+    Start your response with "ANALYSIS: " to clearly identify your contribution.
+    Focus on implications, trends, and connections between the facts.
+  modelRef:
+    name: test-model

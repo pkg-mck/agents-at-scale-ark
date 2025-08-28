@@ -1,0 +1,9 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Tool
+metadata:
+  name: invalid-tool-missing-schema
+spec:
+  type: fetcher
+  # Missing required 'inputSchema' field - should fail admission
+  fetcher:
+    url: https://example.com

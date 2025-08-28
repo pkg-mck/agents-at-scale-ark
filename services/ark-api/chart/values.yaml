@@ -1,0 +1,53 @@
+# ARK API chart values
+
+# Global annotations added to all resources
+global:
+  annotations:
+    ark.mckinsey.com/service: ark-api
+
+# Application configuration
+app:
+  name: ark-api
+  image:
+    repository: ark-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # Resource configuration
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  # Environment variables - often useful to allow other websites to hit the
+  # APIs - not suitable for production environments.
+  env:
+    - name: CORS_ORIGINS
+      value: "*"
+  # Optional: Import entire secrets/configmaps as env vars
+  # envFrom:
+  #   - secretRef:
+  #       name: azure-openai-secret
+  #       optional: true
+
+# Service configuration
+service:
+  name: ark-api
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+# Gateway configuration for HTTPRoute
+gateway:
+  # Namespace where localhost-gateway is installed
+  namespace: ark-system
+  # Gateway name to reference
+  name: localhost-gateway
+
+# Service account configuration
+serviceAccount:
+  name: ark-api-sa
+  create: true

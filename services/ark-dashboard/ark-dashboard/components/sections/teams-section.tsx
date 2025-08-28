@@ -1,0 +1,149 @@
+"use client"
+
+import type React from "react"
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
+import { toast } from "@/components/ui/use-toast"
+import { TeamEditor } from "@/components/editors"
+import { teamsService, agentsService, modelsService, type Team, type TeamCreateRequest, type TeamUpdateRequest, type Agent, type Model } from "@/lib/services"
+import { TeamCard } from "@/components/cards"
+import { useDelayedLoading } from "@/lib/hooks"
+
+interface TeamsSectionProps {
+  namespace: string
+}
+
+export const TeamsSection = forwardRef<{ openAddEditor: () => void }, TeamsSectionProps>(function TeamsSection({ namespace }, ref) {
+  const [teams, setTeams] = useState<Team[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [models, setModels] = useState<Model[]>([])
+  const [teamEditorOpen, setTeamEditorOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const showLoading = useDelayedLoading(loading)
+
+  useImperativeHandle(ref, () => ({
+    openAddEditor: () => setTeamEditorOpen(true)
+  }));
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [teamsData, agentsData, modelsData] = await Promise.all([
+          teamsService.getAll(namespace),
+          agentsService.getAll(namespace),
+          modelsService.getAll(namespace)
+        ])
+        setTeams(teamsData)
+        setAgents(agentsData)
+        setModels(modelsData)
+      } catch (error) {
+        console.error("Failed to load data:", error)
+        toast({
+          variant: "destructive",
+          title: "Failed to Load Data",
+          description: error instanceof Error ? error.message : "An unexpected error occurred"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [namespace])
+
+  const handleSaveTeam = async (team: (TeamCreateRequest | TeamUpdateRequest) & { id?: string }) => {
+    try {
+      if (team.id) {
+        // This is an update
+        const updateRequest = team as TeamUpdateRequest & { id: string }
+        await teamsService.updateById(namespace, updateRequest.id, updateRequest)
+        toast({
+          variant: "success",
+          title: "Team Updated",
+          description: "Successfully updated the team"
+        })
+      } else {
+        // This is a create
+        const createRequest = team as TeamCreateRequest
+        await teamsService.create(namespace, createRequest)
+        toast({
+          variant: "success",
+          title: "Team Created",
+          description: `Successfully created ${createRequest.name}`
+        })
+      }
+      // Reload data
+      const updatedTeams = await teamsService.getAll(namespace)
+      setTeams(updatedTeams)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: team.id ? "Failed to Update Team" : "Failed to Create Team",
+        description: error instanceof Error ? error.message : "An unexpected error occurred"
+      })
+    }
+  }
+
+  const handleDeleteTeam = async (id: string) => {
+    try {
+      const team = teams.find(t => t.id === id)
+      if (!team) {
+        throw new Error("Team not found")
+      }
+      await teamsService.deleteById(namespace, id)
+      toast({
+        variant: "success",
+        title: "Team Deleted",
+        description: `Successfully deleted ${team.name}`
+      })
+      // Reload data
+      const updatedTeams = await teamsService.getAll(namespace)
+      setTeams(updatedTeams)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to Delete Team",
+        description: error instanceof Error ? error.message : "An unexpected error occurred"
+      })
+    }
+  }
+
+  if (showLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center py-8">Loading...</div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex h-full flex-col">
+        <main className="flex-1 overflow-auto p-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 pb-6">
+            {teams.map((team) => (
+              <TeamCard 
+                key={team.id} 
+                team={team} 
+                agents={agents}
+                models={models} 
+                onUpdate={handleSaveTeam}
+                onDelete={handleDeleteTeam}
+                namespace={namespace}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+      
+      <TeamEditor
+        open={teamEditorOpen}
+        onOpenChange={setTeamEditorOpen}
+        team={null}
+        agents={agents}
+        models={models}
+        onSave={handleSaveTeam}
+      />
+    </>
+  )
+});

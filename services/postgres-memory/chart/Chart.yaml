@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgres-memory
+description: PostgreSQL-backed memory service for ARK platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

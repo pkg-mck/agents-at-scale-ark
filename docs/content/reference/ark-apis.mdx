@@ -1,0 +1,108 @@
+---
+title: Ark APIs
+description: REST APIs for managing ARK resources and OpenAI-compatible endpoints
+---
+
+# Ark APIs
+
+ARK provides REST APIs for managing resources and executing queries. The APIs include both native ARK endpoints and OpenAI-compatible endpoints.
+
+## Interactive API Explorer
+
+The easiest way to explore and test the APIs is through the built-in OpenAPI interface:
+
+Start the [dashboard](/user-guide/dashboard) with `make dashboard`
+
+You can access the APIs using the 'APIs' link at bottom left of the dashboard screen:
+
+![Ark Dashboard Screenshot](/ark-dashboard-screenshot.png)
+
+You can also check the routes that have been setup with `make routes` - you will see the API routes such as `ark-api.default.127.0.0.1.nip.io:8000`.
+
+You can open the API docs directly and interact with them through the path: http://ark-api.default.127.0.0.1.nip.io:8080/docs
+
+![Ark APIs](/ark-apis.png)
+
+## Starting the APIs
+
+```bash
+# Development mode
+make ark-api-dev
+
+# Or using Docker
+docker run -p 8000:8000 ark-api:latest
+```
+
+The APIs will be available at `http://localhost:8000`.
+
+Browse the complete API documentation at `http://localhost:8000/docs` when the service is running.
+
+## Native ARK APIs
+
+Standard REST APIs for managing ARK resources:
+
+- **Agents**: `/v1/namespaces/{namespace}/agents`
+- **Teams**: `/v1/namespaces/{namespace}/teams` 
+- **Queries**: `/v1/namespaces/{namespace}/queries`
+- **Models**: `/v1/namespaces/{namespace}/models`
+- **Secrets**: `/v1/namespaces/{namespace}/secrets`
+- **Namespaces**: `/v1/namespaces`
+
+### Example: Create an Agent
+
+```bash
+curl -X POST http://localhost:8000/v1/namespaces/default/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-agent",
+    "prompt": "You are a helpful assistant"
+  }'
+```
+
+## OpenAI-Compatible APIs
+
+Use familiar OpenAI SDK patterns to interact with ARK:
+
+### List Models
+
+```bash
+curl http://localhost:8000/openai/v1/models
+```
+
+Returns all available agents, teams, models, and tools in OpenAI format.
+
+### Chat Completions
+
+```bash
+curl -X POST http://localhost:8000/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "agent/my-agent",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+### Using OpenAI SDK
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="not-needed",
+    base_url="http://localhost:8000/openai/v1"
+)
+
+response = client.chat.completions.create(
+    model="agent/my-agent",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+## Model Naming
+
+When using OpenAI endpoints, specify targets with these prefixes:
+
+- `agent/agent-name` - Query an agent
+- `team/team-name` - Query a team
+- `model/model-name` - Query a model directly
+- `tool/tool-name` - Query a tool

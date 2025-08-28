@@ -1,0 +1,16 @@
+apiVersion: v2
+name: evaluator-llm
+description: LLM Evaluator for Ark - AI-powered query evaluation service using LLM-as-a-Judge
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - evaluator
+  - llm
+  - ai
+  - evaluation
+  - llm-as-judge
+maintainers:
+  - name: Ark Team
+sources:
+  - https://github.com/McK-Internal/agents-at-scale

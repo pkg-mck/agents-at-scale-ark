@@ -1,0 +1,572 @@
+---
+title: Custom Resource Definitions (CRDs)
+description: Detailed specifications for ARK's custom resources
+---
+
+# Custom Resource Definitions (CRDs)
+
+This page provides detailed specifications for each ARK custom resource. For an overview of how these resources work with Kubernetes, see [Kubernetes Integration](/concepts/kubernetes).
+
+## Resource Reference
+
+| Resource | API Version | Description |
+|----------|-------------|-------------|
+| [Agent](#agents) | `ark.mckinsey.com/v1alpha1` | AI agents with prompts and tools |
+| [Team](#teams) | `ark.mckinsey.com/v1alpha1` | Teams of agents with execution strategies |
+| [Model](#models) | `ark.mckinsey.com/v1alpha1` | LLM service configurations |
+| [Query](#queries) | `ark.mckinsey.com/v1alpha1` | Queries to agents or teams |
+| [Tool](/reference/resources/tools) | `ark.mckinsey.com/v1alpha1` | Custom tools for agents |
+| [MCPServer](#mcp-servers) | `ark.mckinsey.com/v1alpha1` | Model Context Protocol servers |
+| [Memory](#memory) | `ark.mckinsey.com/v1alpha1` | Persistent conversation storage |
+| [Evaluator](#evaluators) | `ark.mckinsey.com/v1alpha1` | AI-powered query assessment services |
+| [Evaluation](#evaluations) | `ark.mckinsey.com/v1alpha1` | Multi-mode AI output assessments |
+| [A2AServer](#a2a-servers) | `ark.mckinsey.com/v1prealpha1` | Agent-to-Agent protocol servers |
+| [ExecutionEngine](#execution-engines) | `ark.mckinsey.com/v1prealpha1` | External execution engines |
+
+## Models
+
+Models define connections to AI model providers and handle authentication and configuration.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Model
+metadata:
+  name: default  # Special name 'default' used when agents don't specify a model
+spec:
+  type: azure  # openai, azure, bedrock
+  model:
+    value: gpt-4.1-mini
+  config:
+    azure:
+      baseUrl:
+        value: "https://lxo.openai.azure.com"
+      apiKey:
+        valueFrom:
+          secretKeyRef:
+            name: default-model-token
+            key: token
+      apiVersion:
+        value: "2024-12-01-preview"
+```
+
+### Supported Providers
+- **Azure OpenAI**: Enterprise-grade OpenAI models
+- **OpenAI**: Direct OpenAI API access
+- **AWS Bedrock**: Amazon's managed AI service
+- **Gemini**: Google's AI models
+
+### Configuration Options
+- **API Keys**: Stored securely in Kubernetes secrets
+- **Base URLs**: Custom endpoints for different providers
+- **API Versions**: Provider-specific API versions
+- **Model Parameters**: Temperature, max tokens, etc.
+
+## Agents
+
+Agents are AI entities that process inputs using AI models and can use tools to extend their capabilities.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: weather
+spec:
+  description: Weather forecasting agent that provides current conditions and forecasts
+  prompt: |
+    You are a helpful weather assistant. You can provide weather forecasts and current conditions for any location.
+
+    You should be concise, direct, and to the point.
+    You should NOT answer with unnecessary preamble or postamble.
+  tools:
+    - type: custom
+      name: get-coordinates
+    - type: custom
+      name: get-forecast
+```
+
+### Key Fields
+- **prompt**: Defines the agent's behavior and instructions
+- **description**: Human-readable description of the agent's purpose
+- **tools**: List of tools the agent can use
+- **modelRef**: Optional reference to a specific model (uses 'default' if not specified)
+
+### Tool Integration
+Agents can reference tools by name and type:
+- **custom**: User-defined tools
+- **mcp**: Tools from MCP servers
+- **builtin**: Built-in system tools
+
+## Teams
+
+Teams coordinate multiple agents working together using different execution strategies.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Team
+metadata:
+  name: team-seq
+spec:
+  members:
+    - name: agent-seq
+      type: agent
+    - name: agent-seq
+      type: agent
+    - name: agent-seq
+      type: agent
+  strategy: "sequential"
+```
+
+### Execution Strategies
+- **sequential**: Agents process input one after another
+- **parallel**: Agents process input simultaneously
+- **round-robin**: Agents take turns processing inputs
+- **selector**: Dynamic agent selection based on criteria
+
+### Member Types
+- **agent**: Reference to an Agent resource
+- **team**: Reference to another Team resource (nested teams)
+
+### Advanced Features
+Teams support complex workflows including:
+- **Graph-based strategies**: Custom execution flows
+- **Conditional routing**: Dynamic member selection
+- **Termination conditions**: Early completion criteria
+
+## Queries
+
+Queries represent requests sent to agents or teams and track their execution and results.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: weather-query
+spec:
+  input: 'What is the weather today in New York?'
+  targets:
+    - type: agent
+      name: weather
+```
+
+### Target Types
+- **agent**: Send query to a specific agent
+- **team**: Send query to a team of agents
+- **selector**: Use label selectors to choose targets dynamically
+
+### Advanced Features
+- **Session Management**: Group related queries with sessionId
+- **Template Parameters**: Use variables in query input
+- **Timeout Control**: Set maximum execution time
+- **Multiple Targets**: Send same query to multiple agents/teams
+- **Evaluators**: Automatic assessment of query results
+
+
+## Memory
+
+Memory resources provide persistent storage for agent conversations and context.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Memory
+metadata:
+  name: postgres-memory
+spec:
+  type: postgres
+  config:
+    postgres:
+      host: postgres-service
+      database: ark_memory
+      credentials:
+        valueFrom:
+          secretKeyRef:
+            name: postgres-secret
+            key: connection-string
+```
+
+### Supported Backends
+- **postgres**: PostgreSQL database storage (recommended for production)
+- **redis**: Redis in-memory storage (fast but volatile)
+- **memory**: In-process memory (development only)
+
+### Usage in Queries
+
+Memory resources are referenced in Query specifications to enable persistent conversations:
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: conversation-query
+spec:
+  input: "Remember my name is Alice"
+  targets:
+  - type: agent
+    name: assistant-agent
+  memory:
+    name: postgres-memory
+  sessionId: "user-alice-session"
+```
+
+### Session Management
+
+Memory supports session-based conversation storage:
+- **sessionId**: Groups related queries in a conversation
+- **Isolation**: Each session maintains separate conversation history
+- **Persistence**: Conversations survive pod restarts and cluster changes
+
+### Implementation
+
+Memory services typically provide HTTP APIs for:
+- **Message storage**: Store conversation messages
+- **Message retrieval**: Get conversation history
+- **Session management**: Create and manage conversation sessions
+
+## MCP Servers
+
+MCP (Model Context Protocol) Servers provide standardized tool integrations through containerized services.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: filesystem-mcp
+spec:
+  image: "mcp-filesystem:latest"
+  config:
+    rootPath: "/workspace"
+  tools:
+    - read_file
+    - write_file
+    - list_directory
+```
+
+### Usage with Agents
+
+MCP Servers are accessed through Tool resources: **MCPServer** → **Tool** → **Agent**
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: file-agent
+spec:
+  prompt: "You are a file management assistant with access to filesystem operations."
+  modelRef:
+    name: gpt-4-model
+  tools:
+    - type: custom
+      name: mcp-read-file  # References Tool that connects to MCP server
+```
+
+See [Tools](/reference/resources/tools) for creating Tool resources that connect to MCP servers.
+
+### Features
+- **Container-based**: Run as Kubernetes pods
+- **Tool discovery**: Automatic registration of available tools
+- **Standard protocol**: MCP-compliant tool integration
+- **Service integration**: Reference existing Kubernetes services
+- **Transport support**: HTTP and stdio transport protocols
+
+For detailed MCP server implementation and examples, see [MCP](/advanced-features/mcp) and [ARK MCP Server](/advanced-features/ark-mcp).
+
+## Evaluators
+
+Evaluators provide either deterministic or AI-powered assessment of teams / agents / queries / tools to support quality control and testing.
+For non-deterministic cases, they use the "LLM-as-a-Judge" pattern to automatically evaluate agent responses.
+
+### How Evaluators Work
+
+- **Optional Integration**: Queries can optionally reference an Evaluator for quality assessment
+- **LLM-as-a-Judge**: Evaluators use AI models to assess response quality across multiple criteria
+- **Automatic Triggering**: When a query completes, if an evaluator is specified, the query enters "evaluating" phase
+- **Quality Gating**: Only after successful evaluation is the query marked as "done"
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluator
+metadata:
+  name: llm-evaluator
+spec:
+  type: llm-judge
+  description: "LLM-as-a-Judge evaluator for query assessment"
+  address:
+    valueFrom:
+      serviceRef:
+        name: evaluator-llm
+        port: "http"
+        path: "/evaluate"
+  selector:  # optional - for automatic query evaluation
+    resourceType: Query
+    matchLabels:
+      evaluate: "true" # will automatically evaluate any query with label evaluate=true
+  parameters:  # optional - including model configuration
+    - name: model.name      # specify model to use (default: "default")
+      value: "gpt-4-model"
+    - name: model.namespace # specify model namespace (default: evaluator's namespace)
+      value: "models"
+    - name: min-score      # custom parameter passed to the evaluation service
+      value: "0.8"
+```
+
+**Auto-triggered Evaluation:**
+```
+┌─────────────────────┐                    ┌──────────────┐
+│ Evaluator with      │     Auto-triggers  │ New Query    │
+│ selector:           │ ◄───────────────── │ labels:      │
+│   matchLabels:      │     when created   │   evaluate:  │
+│     evaluate: true  │     or modified    │     "true"   │
+└─────────────────────┘                    └──────────────┘
+```
+
+### Key fields
+- **Address - Service Reference**: Target specific execution service to execute an evaluation.
+- **Query selector**: Automatic match of queries to be evaluated using specific labels. 
+- **Parameter map**: Pass default evaluation parameters to the target evaluation service.
+
+## Evaluations
+
+Evaluations assess different metrics using various modes including direct assessment, dataset comparison, and query result evaluation.  
+Current design is aligned with: One Evaluation = One Evaluator = One Specific Assessment
+
+### Overview
+
+Evaluations work with Evaluators to assess AI outputs, both deterministic and non-deterministic. 
+Multiple evaluation modes can target different evaluators, and evaluators can automatically process evaluations based on label selectors.
+
+**Evaluation Flow:**
+```
+┌─────────────┐      ┌─────────────┐      ┌─────────────────┐
+│ Evaluation  │◄─────│ Evaluator(s)│      │ Ark Evaluation  │
+│  Mode       │─────►│             │─────►│ Service(s)      │
+└─────────────┘      └─────────────┘      └─────────────────┘
+       │                     
+       └─────► (*) Query ────► (Agent/Tool/Team)
+```
+
+### Key Fields
+- **type**: Evaluation type (direct, baseline, query, batch, event)
+- **evaluator**: Reference to the Evaluator resource
+- **config**: Type-specific configuration with embedded fields
+- **status.score**: Evaluation score (0-1)
+- **status.passed**: Whether evaluation passed
+
+### Evaluation Types
+
+#### Direct Type
+
+Evaluate a single input/output pair:
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: direct-eval
+spec:
+  type: direct
+  evaluator:
+    name: quality-evaluator
+  config:
+    input: "What's the weather in NYC?"
+    output: "It's 72°F and sunny in New York City"
+```
+
+#### Baseline type
+Evaluate against baseline datasets to measure performance and verify that the evaluator achieves proper metrics:
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: baseline-eval
+spec:
+  type: baseline
+  evaluator:
+    name: llm-judge
+    parameters:
+      - name: dataset.serviceRef.name
+        value: postgres-memory
+      - name: dataset.datasetId
+        value: weather-test-suite-v2
+      - name: dataset.testCaseIds
+        value: "test-nyc-001,test-la-002"
+  config:
+    baseline: {}
+```
+
+#### Query type evaluation
+Evaluate existing query results:
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: query-eval
+spec:
+  type: query
+  evaluator:
+    name: accuracy-evaluator
+    parameters: # optional
+    - name: dataset.serviceRef.name
+      value: dataset-service
+    - name: dataset.serviceRef.namespace
+      value: default
+    - name: dataset.datasetId
+      value: expected-results-v1
+  config:
+    queryRef:
+      name: weather-query-123
+      responseTarget: "weather-agent"  
+```
+
+#### Batch type
+
+```
+┌─────────────┐      
+│ Evaluation  │      Aggregates multiple child evaluations
+│ type=Batch  │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ─ ─ ─ ─ ─┐
+└─────────────┘                                   │
+                                                  ▼
+                          ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+                          │ Eval 1      │  │ Eval 2      │  │ Eval n      │
+                          │ type=Query  │  │ type=Query  │  │ type=Direct │
+                          └─────────────┘  └─────────────┘  └─────────────┘
+```
+
+Aggregate results from multiple evaluations:
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: batch-eval
+spec:
+  type: batch
+  evaluator:
+    name: aggregator-evaluator
+  config:
+    evaluations:
+     - name: weather-eval
+       namespace: default  # optional
+     - name: agent-eval  
+     - name: tool-eval
+```
+
+#### Event/Rule based evaluation
+
+Rule-based evaluations using CEL (Common Expression Language):
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Evaluation
+metadata:
+  name: event-eval
+spec:
+  type: event
+  evaluator:
+    name: tool-usage-evaluator
+  config:
+    rules:
+      - name: "weather-tool-called"
+        expression: 'event.type == "tool_call" && event.tool_name == "get-weather"'
+        description: "Validates weather tool was called"
+        weight: 1
+      - name: "response-contains-temperature"
+        expression: 'response.content.contains("°F") || response.content.contains("°C")'
+        description: "Ensures temperature is in response"
+        weight: 2
+```
+
+### Using Evaluators in Queries
+
+Reference an evaluator in your query to enable automatic assessment:
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: research-query
+spec:
+  input: "Analyze renewable energy trends"
+  targets:
+    - type: agent
+      name: research-agent
+  evaluator:
+    name: llm-evaluator
+```
+
+### Evaluation Process
+
+1. **Query Execution**: Agent processes the query and generates response
+2. **Evaluation Trigger**: Query enters "evaluating" phase
+3. **Assessment**: Evaluator analyzes response quality using configured criteria
+4. **Scoring**: Evaluator provides numerical score and qualitative feedback
+5. **Completion**: Query marked as "done" with evaluation results
+
+### Evaluation Results
+
+Evaluation results are stored in the Query status:
+
+```yaml
+status:
+  phase: done
+  evaluations:
+  - evaluatorName: llm-evaluator
+    passed: true
+    score: "85"
+    metadata:
+      reasoning: "Response provides comprehensive analysis with supporting data"
+      criteria:
+        accuracy: "high"
+        completeness: "good"
+        relevance: "excellent"
+```
+
+## A2A Servers
+
+A2A (Agent-to-Agent) Servers enable hosting external agent frameworks within ARK.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1prealpha1
+kind: A2AServer
+metadata:
+  name: langchain-agents
+spec:
+  address:
+    valueFrom:
+      serviceRef:
+        name: langchain-service
+        port: "8080"
+```
+
+## Execution Engines
+
+Execution Engines provide custom runtime environments for specialized agent execution.
+
+### Specification
+```yaml
+apiVersion: ark.mckinsey.com/v1prealpha1
+kind: ExecutionEngine
+metadata:
+  name: custom-engine
+spec:
+  type: external
+  endpoint: "http://custom-engine-service:8080"
+```
+
+## Resource Relationships
+
+ARK resources work together in common patterns:
+
+- **Agent + Model + Tools**: Basic agent with capabilities
+- **Team + Multiple Agents**: Multi-agent collaboration
+- **Query + Targets**: Requests to agents or teams
+- **MCP Server + Tools**: Standardized tool integration
+- **Memory + Sessions**: Persistent conversations
+
+---
+
+**Next**: Learn about [CLI Tools](/concepts/cli-tools) for working with these resources.

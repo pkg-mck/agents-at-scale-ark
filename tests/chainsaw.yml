@@ -1,0 +1,21 @@
+# Declares this file as a Chainsaw Configuration resource
+# Setup default reportName, format and properties for main timeouts
+# and tests run in parallel
+# This config file is picked by default when running `chainsaw test` in the e2e testing workflows
+apiVersion: chainsaw.kyverno.io/v1alpha1  
+kind: Configuration                      
+metadata:
+  name: test-exec-custom-config         
+
+spec:
+  reportFormat: JSON                     # Output test reports in JSON format
+  reportName: /tmp/chainsaw-report/chainsaw-report.json  # Path where the test report will be saved
+  timeouts:
+    apply: 45s                           # Timeout for 'apply' operations (e.g., applying manifests)
+    assert: 20s                          # Timeout for assertion checks
+    cleanup: 45s                         # Timeout for cleanup steps after tests
+    delete: 25s                          # Timeout for resource deletion steps
+    error: 10s                           # Timeout for error handling steps
+    exec: 45s                            # Timeout for command execution steps
+  failFast: false                        # If false, Chainsaw will continue running tests even after failures
+  parallel: 4                            # Number of tests to run in parallel

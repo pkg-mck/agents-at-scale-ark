@@ -1,0 +1,7 @@
+apiVersion: v2
+name: ark
+description: A Helm chart to distribute the project ark
+type: application
+version: 0.1.30
+appVersion: 0.1.30
+icon: https://example.com/icon.png

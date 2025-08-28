@@ -1,0 +1,7 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: test-mcpserver-invalid-transport
+  namespace: default
+spec:
+  transport: invalid-transport

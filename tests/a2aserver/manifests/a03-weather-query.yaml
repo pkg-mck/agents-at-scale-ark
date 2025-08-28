@@ -1,0 +1,9 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: test-weather-query
+spec:
+  input: "Tell me the weather in New YorK"
+  targets:
+  - type: agent
+    name: langchain-weather-reporter

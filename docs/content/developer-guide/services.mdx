@@ -1,0 +1,113 @@
+# Services
+
+ARK provides a rich ecosystem of services that extend the platform's capabilities. These services are modular, Kubernetes-native components that can be installed and configured as needed.
+
+## Installing Services
+
+Use `make services` to install and configure additional service capabilities. The command will scan for services with manifest files and let you choose to install, run in dev mode, or uninstall each service.
+
+```bash
+make services
+```
+
+## Service Manifest Format
+
+Each service must include a `manifest.yaml` file that describes the service and its capabilities:
+
+```yaml
+name: postgres-memory
+description: PostgreSQL-based memory storage
+supports:
+  - dev
+  - install
+  - uninstall
+post-install-instructions: |
+  You need to execute: kubectl port-forward service/postgres-memory 5432:5432
+```
+
+The `post-install-instructions` field is optional and will be displayed after successful installation.
+
+## Service Commands
+
+Services follow a standard idiom using Make targets:
+
+- `make <service-name>-dev` - Run the service in development mode locally
+- `make <service-name>-install` - Build the container, push to cluster registry, and deploy using Helm
+- `make <service-name>-uninstall` - Remove the service deployment from the cluster
+
+The `install` command uses the `scripts/build-and-push.sh` helper to build and push container images to the cluster registry, then deploys the service using Helm charts.
+
+## Exposing Services
+
+Services are exposed through Kubernetes Gateway API using HTTPRoute resources. The ARK quickstart sets up a gateway that services can use for external access.
+
+Individual services can also be exposed using `kubectl port-forward` (as shown in post-install instructions).
+
+## Available Services
+
+### Core Services
+- [A2A Gateway](/advanced-features/a2a-server) - Agent-to-Agent Gateway implementing A2A protocol
+- [PostgreSQL Memory](/advanced-features/postgres-memory) - Persistent memory storage using PostgreSQL
+- [Execution Engine](/advanced-features/execution-engine) - Framework adapter for Langchain and other AI frameworks
+
+### CLI Tools
+- **Fark** - Fast Agentic Runtime CLI tool for interacting with agents and teams
+- **ARK CLI** - TypeScript-based CLI for ARK management and project generation
+
+### Execution Engines
+- **Langchain Execution Engine** - Framework adapter for Langchain workflows
+
+### Development Tools
+- **ARK Dashboard** - Next.js-based web interface for ARK management
+- **ARK API** - REST API for managing ARK resources
+
+### Specialized Services
+- **Evaluator LLM** - AI-powered query evaluation service using LLM-as-a-Judge
+- **Evaluation Operator** - Automated evaluation and scoring of agent responses  
+- **ARK SDK Python** - Core Python SDK for Kubernetes resource management
+
+## Service Discovery and Annotations
+
+ARK services use a standardized annotation system for discovery and integration:
+
+### Service Annotations
+
+Services can be annotated to provide metadata for discovery:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  annotations:
+    ar.com/service: "my-service"
+    ar.com/description: "Custom service description"
+    ar.com/version: "1.0.0"
+spec:
+  # ... service spec
+```
+
+### Annotation Schema
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| `ar.com/service` | Service identifier for ARK discovery | `ar-dashboard` |
+| `ar.com/description` | Human-readable service description | `ARK Dashboard Web Interface` |
+| `ar.com/version` | Service version | `1.0.0` |
+
+### Discovery Integration
+
+The ARK dashboard and CLI tools automatically discover services using these annotations, providing:
+- **Service listing** - Automatic discovery of available services
+- **Health monitoring** - Integration with service health endpoints
+- **Route management** - Automatic HTTPRoute creation for Gateway API
+
+## Service Architecture
+
+Services in the ARK ecosystem are designed to be:
+
+- **Modular** - Each service provides specific functionality
+- **Kubernetes-native** - Deployed as standard K8s resources
+- **Composable** - Services can be combined for complex workflows
+- **Framework-agnostic** - Support multiple AI frameworks through adapters
+- **Discoverable** - Use standard annotations for automatic discovery

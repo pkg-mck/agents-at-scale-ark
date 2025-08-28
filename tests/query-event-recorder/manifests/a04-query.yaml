@@ -1,0 +1,9 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: event-recorder-query
+spec:
+  input: "Test event recording functionality"
+  targets:
+  - type: agent
+    name: event-test-agent

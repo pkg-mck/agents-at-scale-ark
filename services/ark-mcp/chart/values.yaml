@@ -1,0 +1,45 @@
+# ARK MCP chart values
+
+# Global annotations added to all resources
+global:
+  annotations:
+    ark.mckinsey.com/service: ark-mcp
+
+# Application configuration
+app:
+  name: ark-mcp
+  image:
+    repository: ark-mcp
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # Resource configuration
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  
+
+# Service configuration
+service:
+  name: ark-mcp
+  type: ClusterIP
+  port: 80
+  targetPort: 2627
+
+# Gateway configuration for HTTPRoute
+gateway:
+  # Enable/disable HTTPRoute creation
+  enabled: true
+  # Namespace where localhost-gateway is installed
+  namespace: ark-system
+  # Gateway name to reference
+  name: localhost-gateway
+
+# Service account configuration
+serviceAccount:
+  name: ark-mcp-sa
+  create: true

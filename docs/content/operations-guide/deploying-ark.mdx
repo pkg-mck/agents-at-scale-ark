@@ -1,0 +1,139 @@
+# Deploying ARK
+
+Deploy ARK locally using quickstart or to remote clusters with registry-based deployment.
+
+## Local Deployment
+
+For local development against local clusters (minikube, kind, k3s, Docker Desktop Kubernetes), use the [Getting Started](/getting-started) guide. The following command builds containers locally and deploys to your local cluster (using the standard helm chart):
+
+```bash
+make deploy
+```
+
+For greater control over the deployment, you can use the Helm chart directly:
+
+```bash
+# Build containers first
+make build-container
+
+# Deploy using Helm with custom configuration
+helm upgrade --install ark-controller ./ark/dist/chart \
+  --namespace ark-system \
+  --create-namespace \
+  --set controllerManager.container.image.repository=ark-controller \
+  --set controllerManager.container.image.tag=latest \
+  --set rbac.enable=true
+```
+
+## Remote Deployment
+
+For remote clusters, deploy ARK using the Helm chart with registry-based container images. This approach is recommended for production, staging, and any non-local environments.
+
+### Prerequisites
+
+Install prerequisites on your remote cluster:
+
+```bash
+# Install cert-manager
+helm repo add jetstack https://charts.jetstack.io --force-update  
+helm repo update
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set crds.enabled=true
+
+# Install Gateway API CRDs
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+```
+
+### Deploy ARK
+
+Deploy using your private registry with authentication:
+
+```bash
+helm upgrade --install ark-controller ./ark/dist/chart \
+  --namespace ark-system \
+  --create-namespace \
+  --set controllerManager.container.image.repository=your-registry.com/ark-controller \
+  --set controllerManager.container.image.tag=0.1.21 \
+  --set containerRegistry.enabled=true \
+  --set containerRegistry.server=your-registry.com \
+  --set containerRegistry.username=your_username \
+  --set containerRegistry.password=your_token \
+  --set rbac.enable=true
+```
+
+### Container Transfer (Optional)
+
+If you need to transfer containers between registries, use the transfer script:
+
+```bash
+# Transfer from source registry to your target registry
+export SOURCE_DOCKER_REGISTRY=source-registry.com  
+export TARGET_DOCKER_REGISTRY=your-registry.com
+export TARGET_DOCKER_USERNAME=your_username
+export TARGET_DOCKER_TOKEN=your_token
+export VERSION=0.1.21
+./scripts/deploy/transfer-ark-containers.sh
+```
+
+## Check Version
+
+Once deployed, you can check the running version:
+
+```bash
+# Via Helm
+helm list -n ark-system
+
+# Via deployment labels  
+kubectl get deployment ark-controller -n ark-system \
+  -o jsonpath='{.metadata.labels.app\.kubernetes\.io/version}'
+
+# Via pod environment variable
+kubectl get pod -n ark-system -l control-plane=ark-controller \
+  -o jsonpath='{.items[0].spec.containers[0].env[?(@.name=="VERSION")].value}'
+```
+
+## Cluster Preparation for CI/CD Deployments
+
+Before using GitHub Actions to deploy ARK to a cluster, platform administrators need to set up the required RBAC permissions.
+
+ARK includes a standard deployer role in [`ark/config/rbac/ark-deployer-role.yaml`](https://github.com/McK-Internal/agents-at-scale/blob/main/ark/config/rbac/ark-deployer-role.yaml) that defines the minimum permissions required for deployments. This role allows creating namespaces, deploying services, installing CRDs, and configuring webhooks.
+
+### Setup Process
+
+Apply the standard ARK deployer role and then bind to the repository - this will ensure that your GitHub Actions will be able to deploy Ark. In many cases you will have to specify the specific runner via `runs_on` but this will depend on your organization's OIDC configuration:
+
+```bash
+# Create the 'ark deployer' role, which has the necessary permissions to
+# deploy Ark.
+kubectl apply -f ark/config/rbac/ark-deployer-role.yaml
+
+# Add the GitHub repository to the role. This allows GitHub workflows to
+# deploy Ark to any cluster they have OIDC access to.
+./scripts/deploy/bind-deployer-role.sh "McK-Internal/agents-at-scale"
+```
+
+This creates a ClusterRoleBinding that connects your GitHub repository identity (via OIDC) to the deployment permissions.
+
+## Tenancy and Ark Namespaces
+
+By default, the `ark-controller` is deployed into the `ark-system` namespace. When the controller is excecuting a query, it will impersonate the user account provided in `query.serviceAccount` field (`default` is used if no service account is specified).
+
+The out-of-the-box installation gives the `ark-controller` permissions to impersonate the `default` service account from all namespaces. This can be configured or changed in the Helm chart like so:
+
+```yaml
+# values.yaml
+rbac:
+impersonation:
+  allowedServiceAccounts:
+    - default
+```
+
+When provisioning new tenant namespaces, ARK provides a secure role that grants access to essential Kubernetes resources (pods, services, deployments, secrets, configmaps) and all ARK resources (agents, models, queries, teams, tools) within that namespace only.
+
+This role prevents privilege escalation and cross-tenant access while allowing tenants to deploy typical workloads alongside their ARK agents.
+
+This is suitable for local development but not for larger multi-tenant scenarios. As a starting point for how multi-tenacy can be enabled, you can copy the `ark-tenant-role` (Role) and `ark-tenant-binding` (RoleBinding) from the `default` namespace to each new tenant namespace, updating the namespace field in the RoleBinding metadata.
+
+Tenants using the default service account will then have appropriate permissions to create and manage ARK resources. Note that this also gives a large number of permissions to core K8S resources, which is convenient for local development but not suitable for production use - tenant roles should be configured and managed by experienced cluster administrators.

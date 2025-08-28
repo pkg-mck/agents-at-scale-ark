@@ -1,0 +1,39 @@
+---
+title: Getting Started
+description: Get ARK running in 5 minutes
+---
+
+import Image from 'next/image'
+
+# Getting Started
+
+Get ARK running in your Kubernetes cluster in just a few minutes using our automated quickstart.
+
+## Installing Ark
+
+You can set up a local `.ark.env` file to run the quickstart with all the needed configuration. If this file is missing the quickstart command will ask you for configuration interactively:
+
+```bash
+# Optionally create a local config file.
+cp .ark.env.local .ark.env
+
+# Clone the repository.
+git clone org-62409820@github.com:McK-Internal/agents-at-scale.git
+cd agents-at-scale
+
+# Install all dependencies and set-up Ark
+make quickstart
+
+# Test your first agent
+fark agent sample-agent "Hello! Tell me about yourself."
+```
+
+That's it! ARK is now running with a sample agent ready to use.
+
+To run the [ARK Dashboard](./user-guide/dashboard):
+
+```bash
+make dashboard
+```
+
+You can then open the Dashboard at: http://127.0.0.1.nip.io:8080/

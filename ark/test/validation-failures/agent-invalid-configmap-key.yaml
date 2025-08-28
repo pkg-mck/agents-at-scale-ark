@@ -1,0 +1,13 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: test-agent-invalid-configmap-key
+spec:
+  prompt: "You are a helpful assistant. {{.missing_key}}"
+  parameters:
+    - name: missing_key
+      valueFrom:
+        configMapKeyRef:
+          name: shared
+          key: nonexistent-key
+  tools: []

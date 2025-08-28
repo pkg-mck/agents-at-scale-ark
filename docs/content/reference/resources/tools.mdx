@@ -1,0 +1,79 @@
+# Tools
+
+Tools extend agent capabilities by providing access to external functions, APIs, and services.
+
+## Tool Resource Types
+
+### Fetcher Tools
+HTTP API calls with URL template substitution.
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Tool
+metadata:
+  name: get-coordinates
+spec:
+  type: fetcher
+  inputSchema:
+    type: object
+    properties:
+      city:
+        type: string
+        description: City name to get coordinates for
+    required: ["city"]
+  description: "Returns coordinates for the given city name"
+  fetcher:
+    url: https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1
+    method: GET
+    timeout: 30s
+```
+
+### MCP Tools  
+Tools provided by Model Context Protocol servers.
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Tool
+metadata:
+  name: mcp-filesys-read-file
+spec:
+  type: mcp
+  inputSchema:
+    type: object
+    properties:
+      path:
+        type: string
+        description: File path to read
+    required: ["path"]
+  description: "Read contents of a file"
+  mcp:
+    mcpServerRef:
+      name: filesys-server
+      namespace: default
+    toolName: read_file
+```
+
+## Agent Tool Reference Types
+
+### Custom Tools
+Reference Tool resources by name:
+
+```yaml
+tools:
+  - type: custom
+    name: get-coordinates
+  - type: custom
+    name: mcp-filesys-read-file
+```
+
+### Built-in Tools
+System-provided tools:
+
+```yaml
+tools:
+  - type: built-in
+    name: terminate  # End conversation with final response
+  - type: built-in
+    name: noop      # No-operation (testing/debugging)
+```
+
