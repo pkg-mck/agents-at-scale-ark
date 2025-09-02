@@ -1,0 +1,29 @@
+---
+title: "Local Development"
+description: "Local development with DevSpace for ARK services"
+---
+
+# Local Development
+
+> [!NOTE]
+>
+> Local development is being migrated to DevSpace for improved developer experience with hot reload and file sync. Currently available for `ark-api` service, with the rest of the stack coming soon.
+
+DevSpace supports the developer experience by deploying your containers with your Helm charts, enabling live reload, debugger support in IDEs, and file synchronization. DevSpace is currently configured for `ark-api`.
+
+## Essential Commands
+
+```bash
+# Build images and deploy to cluster without development features
+devspace deploy
+
+# Development mode with hot reload and file sync
+devspace dev
+
+# Clean up deployment
+devspace purge
+
+# View logs
+devspace logs -f
+```
+
