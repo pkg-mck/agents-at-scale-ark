@@ -71,3 +71,9 @@ export {
   type Event,
   type EventFilters
 } from "./events";
+export {
+  memoryService,
+  type MemoryMessage,
+  type MemoryResource,
+  type MemoryFilters
+} from "./memory";
